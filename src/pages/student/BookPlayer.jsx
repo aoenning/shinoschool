@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/firebase";
-import { collection, doc, getDoc, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, orderBy, setDoc, updateDoc } from "firebase/firestore";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Menu, CheckCircle, ChevronLeft, ChevronRight, PlayCircle } from "lucide-react";
 import ContentRenderer from "@/components/player/ContentRenderer";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function BookPlayer() {
     const { bookId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [book, setBook] = useState(null);
     const [units, setUnits] = useState([]);
     const [activeLesson, setActiveLesson] = useState(null);
@@ -15,6 +17,60 @@ export default function BookPlayer() {
     const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
     const [loading, setLoading] = useState(true);
     const [completedLessons, setCompletedLessons] = useState([]);
+
+    // Load student progress from Firebase
+    const loadStudentProgress = useCallback(async () => {
+        if (!user) {
+            console.log("loadStudentProgress: No user found");
+            return;
+        }
+
+        const studentId = user.id || user.uid;
+        if (!studentId) {
+            console.log("loadStudentProgress: No student ID found", user);
+            return;
+        }
+
+        try {
+            console.log("Loading progress for student:", studentId, "book:", bookId);
+            const progressDoc = await getDoc(doc(db, "students", studentId, "progress", bookId));
+            if (progressDoc.exists()) {
+                const progressData = progressDoc.data();
+                console.log("Progress loaded:", progressData);
+                setCompletedLessons(progressData.completedLessons || []);
+            } else {
+                console.log("No progress found for this book");
+            }
+        } catch (error) {
+            console.error("Error loading student progress:", error);
+        }
+    }, [user, bookId]);
+
+    // Save student progress to Firebase
+    const saveStudentProgress = async (lessonIds) => {
+        if (!user) {
+            console.log("saveStudentProgress: No user found");
+            return;
+        }
+
+        const studentId = user.id || user.uid;
+        if (!studentId) {
+            console.log("saveStudentProgress: No student ID found", user);
+            return;
+        }
+
+        try {
+            console.log("Saving progress for student:", studentId, "lessons:", lessonIds);
+            const progressRef = doc(db, "students", studentId, "progress", bookId);
+            await setDoc(progressRef, {
+                completedLessons: lessonIds,
+                lastUpdated: new Date()
+            }, { merge: true });
+            console.log("Progress saved successfully!");
+        } catch (error) {
+            console.error("Error saving student progress:", error);
+        }
+    };
 
     const loadLesson = useCallback(async (unitId, lessonId) => {
         try {
@@ -34,13 +90,42 @@ export default function BookPlayer() {
         }
     }, [bookId, navigate]);
 
-    const handleMarkCompleted = () => {
+    const handleMarkCompleted = async () => {
+        console.log("handleMarkCompleted called!");
+        console.log("Active lesson:", activeLesson);
+        console.log("Current completedLessons:", completedLessons);
+
         if (activeLesson) {
-            setCompletedLessons(prev =>
-                prev.includes(activeLesson.id)
-                    ? prev.filter(id => id !== activeLesson.id)
-                    : [...prev, activeLesson.id]
-            );
+            const isCurrentlyCompleted = completedLessons.includes(activeLesson.id);
+            console.log("Is currently completed?", isCurrentlyCompleted);
+
+            const newCompletedLessons = isCurrentlyCompleted
+                ? completedLessons.filter(id => id !== activeLesson.id)
+                : [...completedLessons, activeLesson.id];
+
+            console.log("New completedLessons:", newCompletedLessons);
+
+            setCompletedLessons(newCompletedLessons);
+            await saveStudentProgress(newCompletedLessons);
+
+            // Se marcou como concluída (não desmarcou), navegar para próxima lição não concluída
+            if (!isCurrentlyCompleted) {
+                const allLessons = units.flatMap(u => u.lessons);
+                const currentIndex = allLessons.findIndex(l => l.id === activeLesson.id);
+
+                // Procurar próxima lição não concluída
+                for (let i = currentIndex + 1; i < allLessons.length; i++) {
+                    if (!newCompletedLessons.includes(allLessons[i].id)) {
+                        // Pequeno delay para melhor UX (mostrar feedback visual)
+                        setTimeout(() => {
+                            loadLesson(allLessons[i].unitId, allLessons[i].id);
+                        }, 500);
+                        break;
+                    }
+                }
+            }
+        } else {
+            console.log("No active lesson!");
         }
     };
 
@@ -91,10 +176,51 @@ export default function BookPlayer() {
                         })
                     );
                     setUnits(unitsData);
+
+                    // Load student progress only once
+                    if (user) {
+                        const studentId = user.id || user.uid;
+                        if (studentId) {
+                            try {
+                                console.log("Loading progress for student:", studentId, "book:", bookId);
+                                const progressDoc = await getDoc(doc(db, "students", studentId, "progress", bookId));
+                                if (progressDoc.exists()) {
+                                    const progressData = progressDoc.data();
+                                    console.log("Progress loaded:", progressData);
+                                    setCompletedLessons(progressData.completedLessons || []);
+                                } else {
+                                    console.log("No progress found for this book");
+                                }
+                            } catch (error) {
+                                console.error("Error loading student progress:", error);
+                            }
+                        }
+                    }
+
                     if (initialUnitId && initialLessonId) {
                         loadLesson(initialUnitId, initialLessonId);
                     } else if (unitsData.length > 0 && unitsData[0].lessons.length > 0) {
-                        loadLesson(unitsData[0].id, unitsData[0].lessons[0].id);
+                        // Procurar primeira lição não concluída
+                        const allLessons = unitsData.flatMap(u => u.lessons);
+                        const progressDoc = await getDoc(doc(db, "students", user?.id || user?.uid, "progress", bookId));
+                        const savedProgress = progressDoc.exists() ? progressDoc.data().completedLessons || [] : [];
+
+                        let firstUncompletedLesson = null;
+                        for (const lesson of allLessons) {
+                            if (!savedProgress.includes(lesson.id)) {
+                                firstUncompletedLesson = lesson;
+                                break;
+                            }
+                        }
+
+                        // Se encontrou lição não concluída, carrega ela; senão carrega a primeira
+                        if (firstUncompletedLesson) {
+                            console.log("Loading first uncompleted lesson:", firstUncompletedLesson.title);
+                            loadLesson(firstUncompletedLesson.unitId, firstUncompletedLesson.id);
+                        } else {
+                            console.log("All lessons completed, loading first lesson");
+                            loadLesson(unitsData[0].id, unitsData[0].lessons[0].id);
+                        }
                     }
                 }
             } catch (error) {
@@ -104,7 +230,8 @@ export default function BookPlayer() {
             }
         };
         fetchBookData();
-    }, [bookId, initialUnitId, initialLessonId, loadLesson]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookId, initialUnitId, initialLessonId]);
 
     if (loading) {
         return <div className="flex items-center justify-center h-screen">Carregando...</div>;

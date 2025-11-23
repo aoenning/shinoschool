@@ -2,15 +2,18 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { PlayCircle, ArrowLeft, BookOpen, Clock, CheckCircle, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { PlayCircle, ArrowLeft, BookOpen, Clock, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function BookCover() {
     const { bookId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [book, setBook] = useState(null);
     const [units, setUnits] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedUnit, setExpandedUnit] = useState(null);
+    const [completedLessons, setCompletedLessons] = useState([]);
 
     useEffect(() => {
         const fetchBookData = async () => {
@@ -34,6 +37,18 @@ export default function BookCover() {
                     }));
 
                     setUnits(unitsData);
+
+                    // Load student progress
+                    if (user) {
+                        const studentId = user.id || user.uid;
+                        if (studentId) {
+                            const progressDoc = await getDoc(doc(db, "students", studentId, "progress", bookId));
+                            if (progressDoc.exists()) {
+                                setCompletedLessons(progressDoc.data().completedLessons || []);
+                            }
+                        }
+                    }
+
                     // Expand first unit by default
                     if (unitsData.length > 0) setExpandedUnit(unitsData[0].id);
                 }
@@ -45,7 +60,7 @@ export default function BookCover() {
         };
 
         fetchBookData();
-    }, [bookId]);
+    }, [bookId, user]);
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen bg-slate-50">
@@ -56,6 +71,8 @@ export default function BookCover() {
     if (!book) return <div className="flex items-center justify-center h-screen">Livro não encontrado</div>;
 
     const totalLessons = units.reduce((acc, unit) => acc + unit.lessons.length, 0);
+    const completedCount = completedLessons.length;
+    const progressPercentage = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
     // Logic to find the first lesson to start/continue
     const firstUnit = units[0];
@@ -112,12 +129,20 @@ export default function BookCover() {
                         </div>
 
                         <div className="flex-1 text-center md:text-left">
+                            {user && (
+                                <div className="mb-4">
+                                    <p className="text-blue-200 text-sm">Olá,</p>
+                                    <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
+                                        {user.name || user.email?.split('@')[0] || 'Aluno'}! 👋
+                                    </h2>
+                                </div>
+                            )}
                             <h1 className="text-3xl md:text-5xl font-bold mb-4 font-heading">{book.title}</h1>
                             <p className="text-slate-300 text-lg leading-relaxed mb-6 max-w-2xl">
                                 {book.description || "Descrição do curso não disponível."}
                             </p>
 
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-sm text-slate-400 mb-8">
+                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-sm text-slate-400 mb-4">
                                 <div className="flex items-center gap-2">
                                     <BookOpen size={18} />
                                     <span>{units.length} Unidades</span>
@@ -128,7 +153,21 @@ export default function BookCover() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <CheckCircle size={18} />
-                                    <span>Certificado ao concluir</span>
+                                    <span>{completedCount}/{totalLessons} Concluídas</span>
+                                </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-slate-300">Seu Progresso</span>
+                                    <span className="text-sm font-bold text-shino-yellow">{progressPercentage}%</span>
+                                </div>
+                                <div className="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                                    <div
+                                        className="bg-shino-yellow h-full rounded-full transition-all duration-500"
+                                        style={{ width: `${progressPercentage}%` }}
+                                    ></div>
                                 </div>
                             </div>
 
@@ -137,7 +176,7 @@ export default function BookCover() {
                                 className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 w-full md:w-auto"
                             >
                                 <PlayCircle size={24} />
-                                Começar Agora
+                                {completedCount > 0 ? "Continuar" : "Começar Agora"}
                             </Link>
                         </div>
                     </div>
@@ -157,28 +196,41 @@ export default function BookCover() {
                             >
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-lg">{unit.title}</h3>
-                                    <p className="text-slate-500 text-sm mt-1">{unit.lessons.length} aulas</p>
+                                    <p className="text-slate-500 text-sm mt-1">
+                                        {unit.lessons.filter(l => completedLessons.includes(l.id)).length}/{unit.lessons.length} aulas concluídas
+                                    </p>
                                 </div>
                                 {expandedUnit === unit.id ? <ChevronUp className="text-slate-400" /> : <ChevronDown className="text-slate-400" />}
                             </button>
 
                             {expandedUnit === unit.id && (
                                 <div className="border-t border-slate-100 bg-slate-50/50">
-                                    {unit.lessons.map((lesson, index) => (
-                                        <Link
-                                            key={lesson.id}
-                                            to={`/student/book/${bookId}/player?unitId=${unit.id}&lessonId=${lesson.id}`}
-                                            className="flex items-center gap-3 md:gap-4 p-4 md:pl-8 pl-4 hover:bg-white transition-colors border-b border-slate-100 last:border-0 group"
-                                        >
-                                            <div className="w-8 h-8 md:w-8 md:h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-medium group-hover:bg-primary group-hover:text-white transition-colors flex-shrink-0">
-                                                {index + 1}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-slate-700 font-medium group-hover:text-primary transition-colors">{lesson.title}</h4>
-                                            </div>
-                                            <PlayCircle size={18} className="text-slate-400 group-hover:text-primary md:opacity-0 md:group-hover:opacity-100 transition-all flex-shrink-0" />
-                                        </Link>
-                                    ))}
+                                    {unit.lessons.map((lesson, index) => {
+                                        const isCompleted = completedLessons.includes(lesson.id);
+                                        return (
+                                            <Link
+                                                key={lesson.id}
+                                                to={`/student/book/${bookId}/player?unitId=${unit.id}&lessonId=${lesson.id}`}
+                                                className="flex items-center gap-3 md:gap-4 p-4 md:pl-8 pl-4 hover:bg-white transition-colors border-b border-slate-100 last:border-0 group"
+                                            >
+                                                <div className={`w-8 h-8 md:w-8 md:h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors flex-shrink-0 ${isCompleted
+                                                    ? 'bg-green-100 text-green-600'
+                                                    : 'bg-slate-200 text-slate-500 group-hover:bg-primary group-hover:text-white'
+                                                    }`}>
+                                                    {isCompleted ? <CheckCircle size={16} /> : index + 1}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className={`font-medium transition-colors ${isCompleted
+                                                        ? 'text-slate-500 line-through'
+                                                        : 'text-slate-700 group-hover:text-primary'
+                                                        }`}>
+                                                        {lesson.title}
+                                                    </h4>
+                                                </div>
+                                                <PlayCircle size={18} className="text-slate-400 group-hover:text-primary md:opacity-0 md:group-hover:opacity-100 transition-all flex-shrink-0" />
+                                            </Link>
+                                        );
+                                    })}
                                     {unit.lessons.length === 0 && (
                                         <div className="p-6 text-center text-slate-400 text-sm italic">
                                             Nenhuma aula nesta unidade ainda.

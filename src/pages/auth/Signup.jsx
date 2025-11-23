@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { UserPlus, AlertCircle, ArrowLeft } from "lucide-react";
+import Logo from "@/components/ui/Logo";
 
 export default function Signup() {
     const [email, setEmail] = useState("");

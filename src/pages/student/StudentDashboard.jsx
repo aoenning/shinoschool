@@ -141,6 +141,14 @@ export default function StudentDashboard() {
 
                 <div className="relative z-20 max-w-7xl mx-auto px-6 py-12 md:py-24 flex flex-col md:flex-row items-center gap-8 md:gap-12">
                     <div className="flex-1 space-y-6 text-center md:text-left">
+                        {studentData && (
+                            <div className="mb-2">
+                                <p className="text-blue-200 text-sm">Olá,</p>
+                                <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                                    {studentData.name || user?.email?.split('@')[0] || 'Aluno'}! 👋
+                                </h2>
+                            </div>
+                        )}
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium border border-blue-500/30">
                             <Star size={12} />
                             Seu Livro Atual
