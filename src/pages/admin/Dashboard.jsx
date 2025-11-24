@@ -23,18 +23,23 @@ export default function Dashboard() {
                 const classesSnap = await getDocs(collection(db, "classes"));
 
                 // Monthly Revenue (Current Month)
+                // Fetch all paid payments and filter by date in JavaScript to avoid index requirement
+                const paymentsQuery = query(
+                    collection(db, "payments"),
+                    where("status", "==", "paid")
+                );
+                const paymentsSnap = await getDocs(paymentsQuery);
+
                 const now = new Date();
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                 const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-                const paymentsQuery = query(
-                    collection(db, "payments"),
-                    where("status", "==", "paid"),
-                    where("paidDate", ">=", startOfMonth),
-                    where("paidDate", "<=", endOfMonth)
-                );
-                const paymentsSnap = await getDocs(paymentsQuery);
-                const revenue = paymentsSnap.docs.reduce((acc, doc) => acc + Number(doc.data().amount), 0);
+                const revenue = paymentsSnap.docs
+                    .filter(doc => {
+                        const paidDate = doc.data().paidDate?.toDate();
+                        return paidDate && paidDate >= startOfMonth && paidDate <= endOfMonth;
+                    })
+                    .reduce((acc, doc) => acc + Number(doc.data().amount || 0), 0);
 
                 setStats({
                     activeStudents: studentsSnap.size,
@@ -43,6 +48,12 @@ export default function Dashboard() {
                 });
             } catch (error) {
                 console.error("Error fetching dashboard stats:", error);
+                // Set default values on error
+                setStats({
+                    activeStudents: 0,
+                    totalClasses: 0,
+                    monthlyRevenue: 0
+                });
             } finally {
                 setLoading(false);
             }
