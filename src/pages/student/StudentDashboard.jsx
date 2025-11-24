@@ -117,7 +117,7 @@ export default function StudentDashboard() {
 
     if (!studentBook) {
         return (
-            <div className="max-w-7xl mx-auto px-6 py-12">
+            <div className="max-w-7xl mx-auto px-6 py-12 pb-24">
                 <div className="text-center py-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                     <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
                     <h3 className="text-lg font-medium text-slate-900">Nenhum livro atribuído</h3>
@@ -128,7 +128,7 @@ export default function StudentDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="h-screen bg-slate-50 flex flex-col overflow-y-auto">
             {/* Hero Section - Student's Book */}
             <div className={`relative bg-primary text-white overflow-hidden ${units.length === 0 ? 'flex-1 flex items-center' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent z-10"></div>
@@ -140,11 +140,11 @@ export default function StudentDashboard() {
                 ></div>
 
                 <div className="relative z-20 max-w-7xl mx-auto px-6 py-12 md:py-24 flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                    <div className="flex-1 space-y-6 text-center md:text-left">
+                    <div className="flex-1 space-y-4 text-center md:text-left">
                         {studentData && (
-                            <div className="mb-2">
-                                <p className="text-blue-200 text-sm">Olá,</p>
-                                <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                            <div>
+                                <p className="text-blue-200 text-xs">Olá,</p>
+                                <h2 className="text-xl md:text-2xl font-bold text-white">
                                     {studentData.name || user?.email?.split('@')[0] || 'Aluno'}! 👋
                                 </h2>
                             </div>
@@ -216,7 +216,7 @@ export default function StudentDashboard() {
 
             {/* Units and Lessons Section */}
             {units.length > 0 && (
-                <div className="max-w-7xl mx-auto px-6 py-12">
+                <div className="max-w-7xl mx-auto px-6 py-12 pb-24">
                     <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                         <BookOpen size={28} className="text-primary" />
                         Conteúdo do Livro
@@ -278,3 +278,4 @@ export default function StudentDashboard() {
         </div>
     );
 }
+
