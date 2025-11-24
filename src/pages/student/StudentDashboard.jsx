@@ -140,7 +140,7 @@ export default function StudentDashboard() {
                 ></div>
 
                 <div className="relative z-20 max-w-7xl mx-auto px-6 py-6 md:py-24 flex flex-col md:flex-row items-center gap-6 md:gap-12">
-                    <div className="flex-1 space-y-4 text-center md:text-left">
+                    <div className="flex-1 space-y-2 md:space-y-4 text-center md:text-left">
                         {studentData && (
                             <div>
                                 <p className="text-blue-200 text-xs">Olá,</p>
@@ -153,27 +153,27 @@ export default function StudentDashboard() {
                             <Star size={12} />
                             Seu Livro Atual
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-bold leading-tight font-heading">
+                        <h1 className="text-2xl md:text-5xl font-bold leading-tight font-heading">
                             {studentBook.title}
                         </h1>
-                        <p className="text-lg text-slate-300">
+                        <p className="text-sm md:text-lg text-slate-300">
                             <span className="font-semibold">Nível:</span> {studentBook.level || "Não definido"}
                         </p>
-                        <p className="text-slate-300 text-lg max-w-2xl line-clamp-3">
+                        <p className="text-slate-300 text-sm md:text-lg max-w-2xl line-clamp-2 md:line-clamp-3">
                             {studentBook.description || "Comece sua jornada de aprendizado agora. Este curso foi preparado especialmente para você evoluir."}
                         </p>
 
-                        <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 justify-center md:justify-start">
+                        <div className="flex flex-col sm:flex-row items-center gap-2 md:gap-4 pt-2 md:pt-4 justify-center md:justify-start">
                             <Link
                                 to={`/student/book/${studentBook.id}/player`}
-                                className="w-full sm:w-auto px-8 py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-all flex items-center justify-center gap-3 shadow-lg shadow-white/10"
+                                className="w-full sm:w-auto px-6 py-3 md:px-8 md:py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-all flex items-center justify-center gap-2 md:gap-3 shadow-lg shadow-white/10 text-sm md:text-base"
                             >
                                 <PlayCircle size={24} className="fill-slate-900" />
                                 Continuar Estudando
                             </Link>
                             <Link
                                 to={`/student/book/${studentBook.id}`}
-                                className="w-full sm:w-auto px-8 py-4 bg-slate-800/50 text-white rounded-xl font-medium hover:bg-slate-800 transition-all border border-slate-700 flex items-center justify-center gap-3 backdrop-blur-sm"
+                                className="w-full sm:w-auto px-6 py-3 md:px-8 md:py-4 bg-slate-800/50 text-white rounded-xl font-medium hover:bg-slate-800 transition-all border border-slate-700 flex items-center justify-center gap-2 md:gap-3 backdrop-blur-sm text-sm md:text-base"
                             >
                                 <BookOpen size={20} />
                                 Ver Detalhes
@@ -182,7 +182,7 @@ export default function StudentDashboard() {
                     </div>
 
                     {/* Book Cover Art */}
-                    <div className="w-48 md:w-64 flex-shrink-0 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                    <div className="w-32 md:w-64 flex-shrink-0 transform rotate-3 hover:rotate-0 transition-transform duration-500">
                         <div className="aspect-[2/3] rounded-lg shadow-2xl overflow-hidden border-4 border-white/10 relative group">
                             {studentBook.coverUrl ? (
                                 <img
