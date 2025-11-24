@@ -139,7 +139,7 @@ export default function StudentDashboard() {
                     style={{ backgroundImage: `url(${studentBook.coverUrl || 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&q=80&w=1470'})` }}
                 ></div>
 
-                <div className="relative z-20 max-w-7xl mx-auto px-6 py-12 md:py-24 flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                <div className="relative z-20 max-w-7xl mx-auto px-6 py-6 md:py-24 flex flex-col md:flex-row items-center gap-6 md:gap-12">
                     <div className="flex-1 space-y-4 text-center md:text-left">
                         {studentData && (
                             <div>
@@ -278,4 +278,5 @@ export default function StudentDashboard() {
         </div>
     );
 }
+
 
