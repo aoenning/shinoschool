@@ -75,7 +75,11 @@ export default function ContentEditor() {
 
         setUploadingId(contentId);
         try {
-            const storageRef = ref(storage, `books/${bookId}/audio/${Date.now()}_${file.name}`);
+            // Determine folder based on file type
+            const isVideo = file.type.startsWith('video/');
+            const folder = isVideo ? 'videos' : 'audio';
+
+            const storageRef = ref(storage, `books/${bookId}/${folder}/${Date.now()}_${file.name}`);
             await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(storageRef);
 
@@ -175,15 +179,89 @@ export default function ContentEditor() {
                             )}
 
                             {content.type === 'video' && (
-                                <div className="flex gap-4">
-                                    <input
-                                        type="text"
-                                        value={content.data}
-                                        onChange={(e) => handleUpdateContent(content.id, 'data', e.target.value)}
-                                        onBlur={() => saveContent(content)}
-                                        placeholder="Cole a URL do vídeo (YouTube/Vimeo)"
-                                        className="flex-1 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    />
+                                <div className="space-y-4">
+                                    {content.data ? (
+                                        <div className="space-y-2">
+                                            {/* Show video preview */}
+                                            {content.data.includes('youtube.com') || content.data.includes('youtu.be') || content.data.includes('vimeo.com') ? (
+                                                <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden">
+                                                    <iframe
+                                                        src={content.data}
+                                                        className="w-full h-full"
+                                                        allowFullScreen
+                                                    ></iframe>
+                                                </div>
+                                            ) : (
+                                                <video controls className="w-full rounded-lg">
+                                                    <source src={content.data} />
+                                                    Seu navegador não suporta vídeo.
+                                                </video>
+                                            )}
+                                            <button
+                                                onClick={() => handleUpdateContent(content.id, 'data', '')}
+                                                className="text-xs text-red-500 hover:underline"
+                                            >
+                                                Trocar Vídeo
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {/* URL Input */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                    Opção 1: Cole a URL do vídeo
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={content.data}
+                                                    onChange={(e) => handleUpdateContent(content.id, 'data', e.target.value)}
+                                                    onBlur={() => saveContent(content)}
+                                                    placeholder="https://www.youtube.com/watch?v=... ou https://vimeo.com/..."
+                                                    className="w-full px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                />
+                                            </div>
+
+                                            {/* Divider */}
+                                            <div className="relative">
+                                                <div className="absolute inset-0 flex items-center">
+                                                    <div className="w-full border-t border-slate-200"></div>
+                                                </div>
+                                                <div className="relative flex justify-center text-sm">
+                                                    <span className="px-2 bg-white text-slate-500">OU</span>
+                                                </div>
+                                            </div>
+
+                                            {/* File Upload */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                    Opção 2: Envie um arquivo de vídeo
+                                                </label>
+                                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                        {uploadingId === content.id ? (
+                                                            <>
+                                                                <Loader2 className="w-8 h-8 mb-3 text-primary animate-spin" />
+                                                                <p className="text-sm text-slate-500">Enviando vídeo...</p>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Upload className="w-8 h-8 mb-3 text-slate-400" />
+                                                                <p className="text-sm text-slate-500"><span className="font-semibold">Clique para enviar</span> ou arraste o arquivo</p>
+                                                                <p className="text-xs text-slate-500">MP4, WebM, MOV (Max 100MB)</p>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        accept="video/*"
+                                                        onChange={(e) => handleFileUpload(e, content.id)}
+                                                        disabled={uploadingId === content.id}
+                                                    />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
