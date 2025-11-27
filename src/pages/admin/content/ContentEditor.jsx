@@ -211,14 +211,31 @@ export default function ContentEditor() {
                                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                                     Opção 1: Cole a URL do vídeo
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    value={content.data}
-                                                    onChange={(e) => handleUpdateContent(content.id, 'data', e.target.value)}
-                                                    onBlur={() => saveContent(content)}
-                                                    placeholder="https://www.youtube.com/watch?v=... ou https://vimeo.com/..."
-                                                    className="w-full px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                />
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={content.data}
+                                                        onChange={(e) => handleUpdateContent(content.id, 'data', e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                saveContent(content);
+                                                            }
+                                                        }}
+                                                        placeholder="https://www.youtube.com/watch?v=... ou https://vimeo.com/..."
+                                                        className="flex-1 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                    />
+                                                    <button
+                                                        onClick={() => saveContent(content)}
+                                                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                                                    >
+                                                        <Save size={16} />
+                                                        Salvar
+                                                    </button>
+                                                </div>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    Cole a URL e clique em "Salvar" ou pressione Enter
+                                                </p>
                                             </div>
 
                                             {/* Divider */}

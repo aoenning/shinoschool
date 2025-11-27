@@ -31,7 +31,50 @@ export default function ContentRenderer({ content }) {
     }
 
     if (content.type === 'video') {
-        const isUrl = content.data.startsWith('http');
+        // Helper function to get YouTube video ID
+        const getYouTubeVideoId = (url) => {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        };
+
+        // Helper function to get Vimeo video ID
+        const getVimeoVideoId = (url) => {
+            const regExp = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/;
+            const match = url.match(regExp);
+            return match ? match[3] : null;
+        };
+
+        // Determine video source type and get embed URL
+        let embedUrl = null;
+        let useVideoTag = false;
+
+        if (content.data) {
+            // Check for YouTube
+            if (content.data.includes('youtube.com') || content.data.includes('youtu.be')) {
+                const videoId = getYouTubeVideoId(content.data);
+                if (videoId) {
+                    embedUrl = `https://www.youtube.com/embed/${videoId}`;
+                }
+            }
+            // Check for Vimeo
+            else if (content.data.includes('vimeo.com')) {
+                const videoId = getVimeoVideoId(content.data);
+                if (videoId) {
+                    embedUrl = `https://player.vimeo.com/video/${videoId}`;
+                }
+            }
+            // Check for Firebase Storage or other direct video URLs
+            else if (content.data.includes('firebasestorage.googleapis.com') ||
+                content.data.match(/\.(mp4|webm|ogg|mov)(\?|$)/i)) {
+                useVideoTag = true;
+            }
+            // Fallback for other URLs
+            else if (content.data.startsWith('http')) {
+                useVideoTag = true;
+            }
+        }
+
         return (
             <ContentWrapper
                 title={content.title || "Vídeo Aula"}
@@ -40,16 +83,31 @@ export default function ContentRenderer({ content }) {
                 bgClass="bg-red-50"
             >
                 <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg">
-                    {isUrl ? (
+                    {embedUrl ? (
                         <iframe
-                            src={content.data.replace('watch?v=', 'embed/')}
+                            src={embedUrl}
                             className="w-full h-full"
                             allowFullScreen
-                            title={content.title}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            title={content.title || "Vídeo"}
                         />
+                    ) : useVideoTag && content.data ? (
+                        <video
+                            controls
+                            className="w-full h-full"
+                            controlsList="nodownload"
+                        >
+                            <source src={content.data} type="video/mp4" />
+                            <source src={content.data} type="video/webm" />
+                            <source src={content.data} type="video/ogg" />
+                            Seu navegador não suporta a reprodução de vídeo.
+                        </video>
                     ) : (
-                        <div className="flex items-center justify-center h-full text-white">
-                            Video Placeholder
+                        <div className="flex flex-col items-center justify-center h-full text-white gap-3">
+                            <Video size={48} className="text-slate-400" />
+                            <p className="text-slate-400 text-sm">
+                                {content.data ? 'URL de vídeo inválida' : 'Nenhum vídeo configurado'}
+                            </p>
                         </div>
                     )}
                 </div>
