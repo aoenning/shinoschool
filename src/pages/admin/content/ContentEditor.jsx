@@ -13,6 +13,9 @@ export default function ContentEditor() {
     const [loading, setLoading] = useState(true);
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [uploadingId, setUploadingId] = useState(null);
+    const [editingVideoId, setEditingVideoId] = useState(null);
+
+    const [savingIds, setSavingIds] = useState(new Set());
 
     useEffect(() => {
         const fetchData = async () => {
@@ -48,6 +51,11 @@ export default function ContentEditor() {
             const docRef = await addDoc(collection(db, "books", bookId, "units", unitId, "lessons", lessonId, "contents"), newContent);
             setContents([...contents, { id: docRef.id, ...newContent }]);
             setShowAddMenu(false);
+
+            // If adding a video, set it to editing mode
+            if (type === 'video') {
+                setEditingVideoId(docRef.id);
+            }
         } catch (error) {
             console.error("Error adding content:", error);
         }
@@ -58,14 +66,29 @@ export default function ContentEditor() {
         setContents(updatedContents);
     };
 
-    const saveContent = async (content) => {
+    const saveContent = async (contentId) => {
+        // Find the latest content from state to ensure we have the most up-to-date data
+        const contentToSave = contents.find(c => c.id === contentId);
+        if (!contentToSave) return;
+
+        setSavingIds(prev => new Set(prev).add(contentId));
         try {
-            await updateDoc(doc(db, "books", bookId, "units", unitId, "lessons", lessonId, "contents", content.id), {
-                title: content.title,
-                data: content.data
+            await updateDoc(doc(db, "books", bookId, "units", unitId, "lessons", lessonId, "contents", contentId), {
+                title: contentToSave.title,
+                data: contentToSave.data
             });
+
+            // Optional: Show a toast or temporary success indicator if needed
+            // For now, the button state change is enough feedback
         } catch (error) {
             console.error("Error saving content:", error);
+            alert("Erro ao salvar. Tente novamente.");
+        } finally {
+            setSavingIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(contentId);
+                return newSet;
+            });
         }
     };
 
@@ -162,7 +185,7 @@ export default function ContentEditor() {
                                 type="text"
                                 value={content.title}
                                 onChange={(e) => handleUpdateContent(content.id, 'title', e.target.value)}
-                                onBlur={() => saveContent(content)}
+                                onBlur={() => saveContent(content.id)}
                                 placeholder="Título do bloco (opcional)"
                                 className="w-full text-lg font-medium placeholder:text-slate-300 border-none focus:ring-0 p-0"
                             />
@@ -171,7 +194,7 @@ export default function ContentEditor() {
                                 <textarea
                                     value={content.data}
                                     onChange={(e) => handleUpdateContent(content.id, 'data', e.target.value)}
-                                    onBlur={() => saveContent(content)}
+                                    onBlur={() => saveContent(content.id)}
                                     rows={5}
                                     placeholder="Digite o conteúdo do texto aqui..."
                                     className="w-full p-4 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-y"
@@ -180,25 +203,86 @@ export default function ContentEditor() {
 
                             {content.type === 'video' && (
                                 <div className="space-y-4">
-                                    {content.data ? (
+                                    {content.data && editingVideoId !== content.id ? (
                                         <div className="space-y-2">
                                             {/* Show video preview */}
-                                            {content.data.includes('youtube.com') || content.data.includes('youtu.be') || content.data.includes('vimeo.com') ? (
-                                                <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden">
-                                                    <iframe
-                                                        src={content.data}
-                                                        className="w-full h-full"
-                                                        allowFullScreen
-                                                    ></iframe>
-                                                </div>
-                                            ) : (
-                                                <video controls className="w-full rounded-lg">
-                                                    <source src={content.data} />
-                                                    Seu navegador não suporta vídeo.
-                                                </video>
-                                            )}
+                                            {(() => {
+                                                const getYouTubeVideoId = (url) => {
+                                                    if (!url) return null;
+                                                    if (url.includes('/shorts/')) {
+                                                        const parts = url.split('/shorts/');
+                                                        return parts[1] ? parts[1].split('?')[0] : null;
+                                                    }
+                                                    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&?]*).*/;
+                                                    const match = url.match(regExp);
+                                                    return (match && match[2].length === 11) ? match[2] : null;
+                                                };
+
+                                                const getVimeoVideoId = (url) => {
+                                                    if (!url) return null;
+                                                    const regExp = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/;
+                                                    const match = url.match(regExp);
+                                                    return match ? match[3] : null;
+                                                };
+
+                                                const getGoogleDriveVideoId = (url) => {
+                                                    if (!url) return null;
+                                                    const regExp = /drive\.google\.com\/file\/d\/([^\/]+)/;
+                                                    const match = url.match(regExp);
+                                                    return match ? match[1] : null;
+                                                };
+
+                                                let embedUrl = null;
+                                                let useVideoTag = false;
+
+                                                if (content.data.includes('youtube.com') || content.data.includes('youtu.be')) {
+                                                    const videoId = getYouTubeVideoId(content.data);
+                                                    if (videoId) embedUrl = `https://www.youtube.com/embed/${videoId}`;
+                                                } else if (content.data.includes('vimeo.com')) {
+                                                    const videoId = getVimeoVideoId(content.data);
+                                                    if (videoId) embedUrl = `https://player.vimeo.com/video/${videoId}`;
+                                                } else if (content.data.includes('drive.google.com')) {
+                                                    const videoId = getGoogleDriveVideoId(content.data);
+                                                    if (videoId) embedUrl = `https://drive.google.com/file/d/${videoId}/preview`;
+                                                } else if (content.data.includes('firebasestorage.googleapis.com') ||
+                                                    content.data.match(/\.(mp4|webm|ogg|mov)(\?|$)/i) ||
+                                                    content.data.startsWith('http')) {
+                                                    useVideoTag = true;
+                                                }
+
+                                                if (embedUrl) {
+                                                    return (
+                                                        <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden">
+                                                            <iframe
+                                                                src={embedUrl}
+                                                                className="w-full h-full"
+                                                                allowFullScreen
+                                                                title="Video Preview"
+                                                            ></iframe>
+                                                        </div>
+                                                    );
+                                                } else if (useVideoTag) {
+                                                    return (
+                                                        <video controls className="w-full rounded-lg bg-black">
+                                                            <source src={content.data} />
+                                                            Seu navegador não suporta vídeo.
+                                                        </video>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
+                                                            <div className="text-center">
+                                                                <Video size={32} className="mx-auto mb-2 opacity-50" />
+                                                                <p className="text-sm">Pré-visualização indisponível</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                            })()}
                                             <button
-                                                onClick={() => handleUpdateContent(content.id, 'data', '')}
+                                                onClick={() => {
+                                                    setEditingVideoId(content.id);
+                                                }}
                                                 className="text-xs text-red-500 hover:underline"
                                             >
                                                 Trocar Vídeo
@@ -211,30 +295,38 @@ export default function ContentEditor() {
                                                 <label className="block text-sm font-medium text-slate-700 mb-2">
                                                     Opção 1: Cole a URL do vídeo
                                                 </label>
-                                                <div className="flex gap-2">
+                                                <form
+                                                    onSubmit={(e) => {
+                                                        e.preventDefault();
+                                                        if (content.data) {
+                                                            saveContent(content.id);
+                                                            setEditingVideoId(null);
+                                                        }
+                                                    }}
+                                                    className="flex gap-2"
+                                                >
                                                     <input
                                                         type="text"
                                                         value={content.data}
                                                         onChange={(e) => handleUpdateContent(content.id, 'data', e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                saveContent(content);
-                                                            }
-                                                        }}
-                                                        placeholder="https://www.youtube.com/watch?v=... ou https://vimeo.com/..."
-                                                        className="flex-1 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                        placeholder="YouTube, Vimeo, Google Drive ou link direto..."
+                                                        className="flex-1 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                                     />
                                                     <button
-                                                        onClick={() => saveContent(content)}
-                                                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                                                        type="submit"
+                                                        disabled={savingIds.has(content.id) || !content.data}
+                                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
                                                     >
-                                                        <Save size={16} />
-                                                        Salvar
+                                                        {savingIds.has(content.id) ? (
+                                                            <Loader2 size={16} className="animate-spin" />
+                                                        ) : (
+                                                            <Save size={16} />
+                                                        )}
+                                                        {savingIds.has(content.id) ? "Salvando..." : "Salvar"}
                                                     </button>
-                                                </div>
+                                                </form>
                                                 <p className="text-xs text-slate-500 mt-1">
-                                                    Cole a URL e clique em "Salvar" ou pressione Enter
+                                                    Suporta: YouTube, Vimeo, Google Drive e links diretos de vídeo
                                                 </p>
                                             </div>
 

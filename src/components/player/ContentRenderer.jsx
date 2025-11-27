@@ -1,6 +1,10 @@
+import React from 'react';
 import { Type, Video, Music, ExternalLink, FileText } from "lucide-react";
 
 export default function ContentRenderer({ content }) {
+    // Move useState to top level to comply with React Hooks rules
+    const [hasError, setHasError] = React.useState(false);
+
     const ContentWrapper = ({ children, title, icon: Icon, colorClass, bgClass }) => (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
             <div className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-50 flex items-center gap-3 bg-slate-50/30">
@@ -31,8 +35,16 @@ export default function ContentRenderer({ content }) {
     }
 
     if (content.type === 'video') {
+
         // Helper function to get YouTube video ID
         const getYouTubeVideoId = (url) => {
+            if (!url) return null;
+            // Handle Shorts
+            if (url.includes('/shorts/')) {
+                const parts = url.split('/shorts/');
+                return parts[1] ? parts[1].split('?')[0] : null;
+            }
+            // Handle standard URLs
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
             const match = url.match(regExp);
             return (match && match[2].length === 11) ? match[2] : null;
@@ -40,17 +52,26 @@ export default function ContentRenderer({ content }) {
 
         // Helper function to get Vimeo video ID
         const getVimeoVideoId = (url) => {
+            if (!url) return null;
             const regExp = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/;
             const match = url.match(regExp);
             return match ? match[3] : null;
+        };
+
+        // Helper function to get Google Drive video ID
+        const getGoogleDriveVideoId = (url) => {
+            if (!url) return null;
+            const regExp = /drive\.google\.com\/file\/d\/([^\/]+)/;
+            const match = url.match(regExp);
+            return match ? match[1] : null;
         };
 
         // Determine video source type and get embed URL
         let embedUrl = null;
         let useVideoTag = false;
 
-        if (content.data) {
-            // Check for YouTube
+        if (content.data && !hasError) {
+            // Check for YouTube (including Shorts)
             if (content.data.includes('youtube.com') || content.data.includes('youtu.be')) {
                 const videoId = getYouTubeVideoId(content.data);
                 if (videoId) {
@@ -64,12 +85,19 @@ export default function ContentRenderer({ content }) {
                     embedUrl = `https://player.vimeo.com/video/${videoId}`;
                 }
             }
+            // Check for Google Drive
+            else if (content.data.includes('drive.google.com')) {
+                const videoId = getGoogleDriveVideoId(content.data);
+                if (videoId) {
+                    embedUrl = `https://drive.google.com/file/d/${videoId}/preview`;
+                }
+            }
             // Check for Firebase Storage or other direct video URLs
             else if (content.data.includes('firebasestorage.googleapis.com') ||
                 content.data.match(/\.(mp4|webm|ogg|mov)(\?|$)/i)) {
                 useVideoTag = true;
             }
-            // Fallback for other URLs
+            // Fallback for other URLs - assume it might be a direct link if it starts with http
             else if (content.data.startsWith('http')) {
                 useVideoTag = true;
             }
@@ -90,12 +118,18 @@ export default function ContentRenderer({ content }) {
                             allowFullScreen
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             title={content.title || "Vídeo"}
+                            onError={() => setHasError(true)}
                         />
-                    ) : useVideoTag && content.data ? (
+                    ) : useVideoTag && content.data && !hasError ? (
                         <video
                             controls
                             className="w-full h-full"
                             controlsList="nodownload"
+                            playsInline
+                            playsinline="true"
+                            webkit-playsinline="true"
+                            preload="metadata"
+                            onError={() => setHasError(true)}
                         >
                             <source src={content.data} type="video/mp4" />
                             <source src={content.data} type="video/webm" />
@@ -103,11 +137,19 @@ export default function ContentRenderer({ content }) {
                             Seu navegador não suporta a reprodução de vídeo.
                         </video>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-white gap-3">
-                            <Video size={48} className="text-slate-400" />
-                            <p className="text-slate-400 text-sm">
-                                {content.data ? 'URL de vídeo inválida' : 'Nenhum vídeo configurado'}
+                        <div className="flex flex-col items-center justify-center h-full text-white gap-3 bg-slate-900">
+                            <Video size={48} className="text-slate-600" />
+                            <p className="text-slate-400 text-sm font-medium">
+                                {hasError ? 'Erro ao carregar o vídeo' : (content.data ? 'URL de vídeo inválida ou não suportada' : 'Nenhum vídeo configurado')}
                             </p>
+                            {hasError && (
+                                <button
+                                    onClick={() => setHasError(false)}
+                                    className="text-xs text-blue-400 hover:text-blue-300 underline"
+                                >
+                                    Tentar novamente
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
