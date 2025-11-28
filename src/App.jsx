@@ -13,6 +13,7 @@ import ClassForm from "@/pages/admin/classes/ClassForm";
 
 import StudentList from "@/pages/admin/students/StudentList";
 import StudentForm from "@/pages/admin/students/StudentForm";
+import StudentPrintForm from "@/pages/admin/students/StudentPrintForm";
 
 import FinancialDashboard from "@/pages/admin/financial/FinancialDashboard";
 import PaymentList from "@/pages/admin/financial/PaymentList";
@@ -70,6 +71,7 @@ function App() {
             <Route path="students" element={<StudentList />} />
             <Route path="students/new" element={<StudentForm />} />
             <Route path="students/edit/:id" element={<StudentForm />} />
+            <Route path="students/print/:id" element={<StudentPrintForm />} />
 
             {/* Financial Routes */}
             <Route path="financial" element={<FinancialDashboard />} />

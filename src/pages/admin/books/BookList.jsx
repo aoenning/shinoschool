@@ -94,39 +94,52 @@ export default function BookList() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {books.map((book) => (
-                    <div key={book.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-slate-100 rounded-lg text-blue-600">
-                                <Book size={24} />
-                            </div>
-                            <div className="flex gap-2">
+                    <div key={book.id} className="bg-white rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow overflow-hidden">
+                        {/* Book Cover */}
+                        <div className="h-48 bg-gradient-to-br from-primary to-primary-600 relative overflow-hidden">
+                            {book.coverUrl ? (
+                                <img
+                                    src={book.coverUrl}
+                                    alt={book.title}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <Book size={64} className="text-white/30" />
+                                </div>
+                            )}
+                            <div className="absolute top-3 right-3 flex gap-2">
                                 <Link
                                     to={`/admin/books/structure/${book.id}`}
-                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                                    className="p-2 bg-white/90 backdrop-blur-sm text-primary hover:bg-white rounded-lg transition-colors shadow-sm"
                                     title="Gerenciar Conteúdo"
                                 >
                                     <BookOpen size={18} />
                                 </Link>
                                 <Link
                                     to={`/admin/books/edit/${book.id}`}
-                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                    className="p-2 bg-white/90 backdrop-blur-sm text-blue-600 hover:bg-white rounded-lg transition-colors shadow-sm"
                                 >
                                     <Pencil size={18} />
                                 </Link>
                                 <button
                                     onClick={() => handleDelete(book.id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    className="p-2 bg-white/90 backdrop-blur-sm text-red-600 hover:bg-white rounded-lg transition-colors shadow-sm"
                                 >
                                     <Trash2 size={18} />
                                 </button>
                             </div>
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-1">{book.title}</h3>
-                        <p className="text-sm text-slate-500">{book.level || "Nível não definido"}</p>
 
-                        <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between text-sm text-slate-500">
-                            <span>{book.unitsCount || 0} Lesson{book.unitsCount !== 1 ? 's' : ''}</span>
-                            <span>{book.studentsCount || 0} Aluno{book.studentsCount !== 1 ? 's' : ''}</span>
+                        {/* Book Info */}
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-slate-800 mb-1">{book.title}</h3>
+                            <p className="text-sm text-slate-500 mb-4">{book.level || "Nível não definido"}</p>
+
+                            <div className="pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
+                                <span>{book.unitsCount || 0} Lesson{book.unitsCount !== 1 ? 's' : ''}</span>
+                                <span>{book.studentsCount || 0} Aluno{book.studentsCount !== 1 ? 's' : ''}</span>
+                            </div>
                         </div>
                     </div>
                 ))}

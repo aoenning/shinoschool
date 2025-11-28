@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, deleteDoc, doc, getDoc } from "firebase/firestore";
 import { Link } from "react-router-dom";
-import { Plus, Pencil, Trash2, User, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, User, BookOpen, Printer } from "lucide-react";
 
 export default function StudentList() {
     const [students, setStudents] = useState([]);
@@ -107,6 +107,13 @@ export default function StudentList() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-2">
+                                        <Link
+                                            to={`/admin/students/print/${student.id}`}
+                                            className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                                            title="Imprimir Cadastro"
+                                        >
+                                            <Printer size={18} />
+                                        </Link>
                                         <Link
                                             to={`/admin/students/edit/${student.id}`}
                                             className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"

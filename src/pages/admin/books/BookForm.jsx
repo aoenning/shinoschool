@@ -3,12 +3,14 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
+import FileUpload from "@/components/FileUpload";
 
 export default function BookForm() {
     const [formData, setFormData] = useState({
         title: "",
         level: "",
-        description: ""
+        description: "",
+        coverUrl: ""
     });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -110,6 +112,18 @@ export default function BookForm() {
                             rows={4}
                             className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             placeholder="Breve descrição do conteúdo..."
+                        />
+                    </div>
+
+                    <div>
+                        <FileUpload
+                            accept="image/*"
+                            maxSize={5}
+                            onUpload={(url) => setFormData({ ...formData, coverUrl: url })}
+                            storagePath="book-covers"
+                            currentFile={formData.coverUrl}
+                            label="Capa do Livro"
+                            preview={true}
                         />
                     </div>
 

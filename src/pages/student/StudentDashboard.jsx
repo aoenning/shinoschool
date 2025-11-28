@@ -2,16 +2,67 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from "firebase/firestore";
 import { Link } from "react-router-dom";
-import { PlayCircle, BookOpen, Clock, Star, CheckCircle } from "lucide-react";
+import { PlayCircle, BookOpen, Clock, Star, CheckCircle, ChevronDown, Book } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function StudentDashboard() {
     const [studentBook, setStudentBook] = useState(null);
+    const [allAssignedBooks, setAllAssignedBooks] = useState([]);
     const [units, setUnits] = useState([]);
     const [loading, setLoading] = useState(true);
     const [studentData, setStudentData] = useState(null);
+    const [showBookSelector, setShowBookSelector] = useState(false);
 
     const { user } = useAuth();
+
+    const loadBookContent = async (bookId) => {
+        try {
+            const bookDoc = await getDoc(doc(db, "books", bookId));
+            if (!bookDoc.exists()) {
+                console.log("Book not found");
+                return;
+            }
+
+            const bookData = { id: bookDoc.id, ...bookDoc.data() };
+            setStudentBook(bookData);
+
+            // Fetch units for this book
+            const unitsQuery = query(
+                collection(db, "units"),
+                where("bookId", "==", bookId),
+                orderBy("order", "asc")
+            );
+            const unitsSnapshot = await getDocs(unitsQuery);
+
+            const unitsWithLessons = await Promise.all(
+                unitsSnapshot.docs.map(async (unitDoc) => {
+                    const unitData = { id: unitDoc.id, ...unitDoc.data() };
+
+                    // Fetch lessons for each unit
+                    const lessonsQuery = query(
+                        collection(db, "lessons"),
+                        where("unitId", "==", unitDoc.id),
+                        orderBy("order", "asc")
+                    );
+                    const lessonsSnapshot = await getDocs(lessonsQuery);
+                    const lessons = lessonsSnapshot.docs.map(lessonDoc => ({
+                        id: lessonDoc.id,
+                        ...lessonDoc.data()
+                    }));
+
+                    return {
+                        ...unitData,
+                        lessons
+                    };
+                })
+            );
+
+            setUnits(unitsWithLessons);
+            setShowBookSelector(false);
+        } catch (error) {
+            console.error("Error loading book content:", error);
+        }
+    };
 
     useEffect(() => {
         const fetchStudentData = async () => {
@@ -33,67 +84,53 @@ export default function StudentDashboard() {
                 const studentInfo = studentDoc.data();
                 setStudentData(studentInfo);
 
-                let targetBookId = studentInfo.currentBookId;
+                // Handle multiple assigned books (new structure)
+                if (studentInfo.assignedBooks && studentInfo.assignedBooks.length > 0) {
+                    // Fetch all assigned books details
+                    const booksPromises = studentInfo.assignedBooks.map(async (assignedBook) => {
+                        const bookDoc = await getDoc(doc(db, "books", assignedBook.bookId));
+                        if (bookDoc.exists()) {
+                            return {
+                                id: bookDoc.id,
+                                ...bookDoc.data(),
+                                isCurrent: assignedBook.isCurrent,
+                                assignedAt: assignedBook.assignedAt
+                            };
+                        }
+                        return null;
+                    });
 
-                // Fallback: Check Class Book if no direct book assigned
-                if (!targetBookId && studentInfo.classId) {
-                    const classDoc = await getDoc(doc(db, "classes", studentInfo.classId));
-                    if (classDoc.exists()) {
-                        targetBookId = classDoc.data().bookId;
+                    const assignedBooksData = (await Promise.all(booksPromises)).filter(b => b !== null);
+                    setAllAssignedBooks(assignedBooksData);
+
+                    // Find current book
+                    const currentBook = assignedBooksData.find(b => b.isCurrent);
+                    if (currentBook) {
+                        await loadBookContent(currentBook.id);
+                    } else if (assignedBooksData.length > 0) {
+                        // If no current book set, use first one
+                        await loadBookContent(assignedBooksData[0].id);
                     }
+                } else {
+                    // Fallback to old structure (currentBookId)
+                    let targetBookId = studentInfo.currentBookId;
+
+                    // Fallback: Check Class Book if no direct book assigned
+                    if (!targetBookId && studentInfo.classId) {
+                        const classDoc = await getDoc(doc(db, "classes", studentInfo.classId));
+                        if (classDoc.exists()) {
+                            targetBookId = classDoc.data().bookId;
+                        }
+                    }
+
+                    if (!targetBookId) {
+                        console.log("No book assigned to student or class");
+                        setLoading(false);
+                        return;
+                    }
+
+                    await loadBookContent(targetBookId);
                 }
-
-                // Check if student has a book assigned (either direct or via class)
-                if (!targetBookId) {
-                    console.log("No book assigned to student or class");
-                    setLoading(false);
-                    return;
-                }
-
-                // Fetch the student's assigned book
-                const bookDoc = await getDoc(doc(db, "books", targetBookId));
-
-                if (!bookDoc.exists()) {
-                    console.log("Book not found");
-                    setLoading(false);
-                    return;
-                }
-
-                const bookData = { id: bookDoc.id, ...bookDoc.data() };
-                setStudentBook(bookData);
-
-                // Fetch units for this book
-                const unitsQuery = query(
-                    collection(db, "units"),
-                    where("bookId", "==", targetBookId),
-                    orderBy("order", "asc")
-                );
-                const unitsSnapshot = await getDocs(unitsQuery);
-
-                const unitsWithLessons = await Promise.all(
-                    unitsSnapshot.docs.map(async (unitDoc) => {
-                        const unitData = { id: unitDoc.id, ...unitDoc.data() };
-
-                        // Fetch lessons for each unit
-                        const lessonsQuery = query(
-                            collection(db, "lessons"),
-                            where("unitId", "==", unitDoc.id),
-                            orderBy("order", "asc")
-                        );
-                        const lessonsSnapshot = await getDocs(lessonsQuery);
-                        const lessons = lessonsSnapshot.docs.map(lessonDoc => ({
-                            id: lessonDoc.id,
-                            ...lessonDoc.data()
-                        }));
-
-                        return {
-                            ...unitData,
-                            lessons
-                        };
-                    })
-                );
-
-                setUnits(unitsWithLessons);
 
             } catch (error) {
                 console.error("Error fetching student data:", error);
@@ -149,10 +186,54 @@ export default function StudentDashboard() {
                                 </h2>
                             </div>
                         )}
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium border border-blue-500/30">
-                            <Star size={12} />
-                            Seu Livro Atual
-                        </div>
+
+                        {/* Book Selector - Show if multiple books */}
+                        {allAssignedBooks.length > 1 ? (
+                            <div className="relative inline-block">
+                                <button
+                                    onClick={() => setShowBookSelector(!showBookSelector)}
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 text-blue-300 text-sm font-medium border border-blue-500/30 hover:bg-blue-500/30 transition-colors"
+                                >
+                                    <Book size={14} />
+                                    {allAssignedBooks.length} Livros Atribuídos
+                                    <ChevronDown size={14} className={`transition-transform ${showBookSelector ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showBookSelector && (
+                                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                                        {allAssignedBooks.map((book) => (
+                                            <button
+                                                key={book.id}
+                                                onClick={() => loadBookContent(book.id)}
+                                                className={`w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors flex items-center gap-3 ${book.id === studentBook.id ? 'bg-blue-50' : ''
+                                                    }`}
+                                            >
+                                                {book.coverUrl ? (
+                                                    <img src={book.coverUrl} alt={book.title} className="w-10 h-14 object-cover rounded" />
+                                                ) : (
+                                                    <div className="w-10 h-14 bg-gradient-to-br from-primary to-primary-600 rounded flex items-center justify-center">
+                                                        <Book size={16} className="text-white" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1">
+                                                    <p className="font-medium text-slate-900 text-sm">{book.title}</p>
+                                                    <p className="text-xs text-slate-500">{book.level}</p>
+                                                </div>
+                                                {book.id === studentBook.id && (
+                                                    <Star size={16} className="text-yellow-500 fill-yellow-500" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium border border-blue-500/30">
+                                <Star size={12} />
+                                Seu Livro Atual
+                            </div>
+                        )}
+
                         <h1 className="text-2xl md:text-5xl font-bold leading-tight font-heading">
                             {studentBook.title}
                         </h1>
@@ -278,5 +359,3 @@ export default function StudentDashboard() {
         </div>
     );
 }
-
-
