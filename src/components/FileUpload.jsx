@@ -17,6 +17,11 @@ export default function FileUpload({
     const [previewUrl, setPreviewUrl] = useState(currentFile);
     const [error, setError] = useState("");
 
+    // Sync previewUrl with currentFile prop
+    useEffect(() => {
+        setPreviewUrl(currentFile);
+    }, [currentFile]);
+
     const validateFile = (file) => {
         // Check file size
         const sizeMB = file.size / (1024 * 1024);
@@ -52,6 +57,7 @@ export default function FileUpload({
         if (!validateFile(file)) return;
 
         setUploading(true);
+        console.log("Starting upload for file:", file.name);
         try {
             // Create unique filename
             const timestamp = Date.now();
@@ -59,10 +65,13 @@ export default function FileUpload({
             const storageRef = ref(storage, `${storagePath}/${filename}`);
 
             // Upload file
+            console.log("Uploading to:", storageRef.fullPath);
             await uploadBytes(storageRef, file);
+            console.log("Upload successful");
 
             // Get download URL
             const url = await getDownloadURL(storageRef);
+            console.log("Download URL:", url);
 
             // Set preview for images
             if (file.type.startsWith("image/") && preview) {
@@ -74,7 +83,7 @@ export default function FileUpload({
             setError("");
         } catch (err) {
             console.error("Upload error:", err);
-            setError("Erro ao fazer upload. Tente novamente.");
+            setError(`Erro ao fazer upload: ${err.message}`);
         } finally {
             setUploading(false);
         }
