@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Upload, X, FileIcon, Loader2 } from "lucide-react";
 
 export default function FileUpload({
-    accept = "image/*",
+    accept = "image/*,audio/*,video/*",
     maxSize = 5, // MB
     onUpload,
     storagePath = "uploads",
@@ -23,10 +23,18 @@ export default function FileUpload({
     }, [currentFile]);
 
     const validateFile = (file) => {
+        console.log("Validating file:", {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            sizeMB: (file.size / (1024 * 1024)).toFixed(2)
+        });
+
         // Check file size
         const sizeMB = file.size / (1024 * 1024);
         if (sizeMB > maxSize) {
             setError(`Arquivo muito grande. Tamanho máximo: ${maxSize}MB`);
+            console.error("File too large:", sizeMB, "MB");
             return false;
         }
 
@@ -35,6 +43,12 @@ export default function FileUpload({
             const acceptTypes = accept.split(",").map(t => t.trim());
             const fileType = file.type;
             const fileExt = `.${file.name.split(".").pop()}`;
+
+            console.log("Type validation:", {
+                acceptTypes,
+                fileType,
+                fileExt
+            });
 
             const isValid = acceptTypes.some(type => {
                 if (type.includes("*")) {
@@ -45,10 +59,12 @@ export default function FileUpload({
 
             if (!isValid) {
                 setError(`Tipo de arquivo não permitido. Aceito: ${accept}`);
+                console.error("Invalid file type");
                 return false;
             }
         }
 
+        console.log("File validation passed");
         setError("");
         return true;
     };
@@ -64,9 +80,15 @@ export default function FileUpload({
             const filename = `${timestamp}_${file.name}`;
             const storageRef = ref(storage, `${storagePath}/${filename}`);
 
-            // Upload file
+            // Upload file with timeout
             console.log("Uploading to:", storageRef.fullPath);
-            await uploadBytes(storageRef, file);
+
+            const uploadPromise = uploadBytes(storageRef, file);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Upload timed out after 30 seconds")), 30000)
+            );
+
+            await Promise.race([uploadPromise, timeoutPromise]);
             console.log("Upload successful");
 
             // Get download URL
@@ -172,8 +194,8 @@ export default function FileUpload({
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
                     className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-slate-300 hover:border-slate-400"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-slate-300 hover:border-slate-400"
                         } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
                 >
                     <input

@@ -12,6 +12,16 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+if (!firebaseConfig.storageBucket) {
+    console.error("CRITICAL: VITE_FIREBASE_STORAGE_BUCKET is missing! Uploads will fail.");
+}
+console.log("Firebase Config Check:", {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasAuthDomain: !!firebaseConfig.authDomain,
+    hasProjectId: !!firebaseConfig.projectId,
+    hasStorageBucket: !!firebaseConfig.storageBucket,
+});
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
