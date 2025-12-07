@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, doc, getDoc, addDoc, getDocs, query, orderBy, deleteDoc, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Type, Video, Music, Save, GripVertical, Eye, Upload, Loader2 } from "lucide-react";
 
@@ -94,32 +94,108 @@ export default function ContentEditor() {
 
     const handleFileUpload = async (e, contentId) => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            console.log("Nenhum arquivo selecionado");
+            return;
+        }
+
+        console.log("Iniciando upload de arquivo:", {
+            name: file.name,
+            type: file.type,
+            size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+            contentId
+        });
 
         setUploadingId(contentId);
+
         try {
             // Determine folder based on file type
             const isVideo = file.type.startsWith('video/');
             const folder = isVideo ? 'videos' : 'audio';
 
+            console.log(`Fazendo upload para pasta: ${folder}`);
+
             const storageRef = ref(storage, `books/${bookId}/${folder}/${Date.now()}_${file.name}`);
-            await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(storageRef);
 
-            // Update local state
-            const updatedContents = contents.map(c => c.id === contentId ? { ...c, data: downloadURL } : c);
-            setContents(updatedContents);
+            console.log("Criando tarefa de upload resumível...");
 
-            // Save to Firestore
-            await updateDoc(doc(db, "books", bookId, "units", unitId, "lessons", lessonId, "contents", contentId), {
-                data: downloadURL
+            // Use uploadBytesResumable instead of uploadBytes
+            // This uses a different upload method that may bypass CORS issues
+            const uploadTask = uploadBytesResumable(storageRef, file, {
+                contentType: file.type
             });
 
+            // Monitor upload progress
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log(`Upload progress: ${progress.toFixed(2)}%`);
+                },
+                (error) => {
+                    // Handle upload errors
+                    console.error("Erro durante upload:", {
+                        message: error.message,
+                        code: error.code,
+                        serverResponse: error.serverResponse
+                    });
+
+                    let errorMessage = "Erro ao fazer upload do arquivo.";
+
+                    if (error.code === 'storage/unauthorized') {
+                        errorMessage = "Erro de permissão. Verifique as regras do Firebase Storage.";
+                    } else if (error.code === 'storage/canceled') {
+                        errorMessage = "Upload cancelado.";
+                    } else if (error.code === 'storage/unknown') {
+                        errorMessage = "Erro desconhecido. Verifique sua conexão com a internet.";
+                    } else if (error.message) {
+                        errorMessage = `Erro: ${error.message}`;
+                    }
+
+                    alert(errorMessage);
+                    setUploadingId(null);
+                    e.target.value = '';
+                },
+                async () => {
+                    // Upload completed successfully
+                    console.log("Upload concluído, obtendo URL de download...");
+
+                    try {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        console.log("URL de download obtida:", downloadURL);
+
+                        // Update local state
+                        const updatedContents = contents.map(c => c.id === contentId ? { ...c, data: downloadURL } : c);
+                        setContents(updatedContents);
+
+                        console.log("Salvando URL no Firestore...");
+                        // Save to Firestore
+                        await updateDoc(doc(db, "books", bookId, "units", unitId, "lessons", lessonId, "contents", contentId), {
+                            data: downloadURL
+                        });
+
+                        console.log("Upload e salvamento concluídos com sucesso!");
+
+                        // Clear editing state for videos
+                        if (isVideo && editingVideoId === contentId) {
+                            setEditingVideoId(null);
+                        }
+
+                        setUploadingId(null);
+                        e.target.value = '';
+                    } catch (error) {
+                        console.error("Erro ao salvar URL:", error);
+                        alert("Upload concluído mas erro ao salvar. Tente novamente.");
+                        setUploadingId(null);
+                        e.target.value = '';
+                    }
+                }
+            );
+
         } catch (error) {
-            console.error("Error uploading file:", error);
-            alert(`Erro ao fazer upload: ${error.message}`);
-        } finally {
+            console.error("Erro ao iniciar upload:", error);
+            alert(`Erro ao iniciar upload: ${error.message}`);
             setUploadingId(null);
+            e.target.value = '';
         }
     };
 
@@ -377,32 +453,45 @@ export default function ContentEditor() {
                             {content.type === 'audio' && (
                                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                                     {content.data ? (
-                                        <div className="flex items-center gap-4">
-                                            <audio controls className="flex-1 h-10">
+                                        <div className="space-y-3">
+                                            <audio controls className="w-full h-10">
                                                 <source src={content.data} />
                                                 Seu navegador não suporta áudio.
                                             </audio>
-                                            <button
-                                                onClick={() => handleUpdateContent(content.id, 'data', '')}
-                                                className="text-xs text-red-500 hover:underline"
-                                            >
-                                                Trocar Arquivo
-                                            </button>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs text-slate-500">Áudio carregado com sucesso</p>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (window.confirm("Tem certeza que deseja trocar o arquivo de áudio?")) {
+                                                            // Clear the data to show upload interface again
+                                                            handleUpdateContent(content.id, 'data', '');
+                                                            // Save the change to Firestore
+                                                            await updateDoc(doc(db, "books", bookId, "units", unitId, "lessons", lessonId, "contents", content.id), {
+                                                                data: ''
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="text-xs text-red-500 hover:text-red-700 hover:underline font-medium transition-colors"
+                                                >
+                                                    Trocar Arquivo
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-center w-full">
-                                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-colors">
                                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                                     {uploadingId === content.id ? (
                                                         <>
-                                                            <Loader2 className="w-8 h-8 mb-3 text-primary animate-spin" />
-                                                            <p className="text-sm text-slate-500">Enviando áudio...</p>
+                                                            <Loader2 className="w-8 h-8 mb-3 text-blue-600 animate-spin" />
+                                                            <p className="text-sm text-slate-600 font-medium">Enviando áudio...</p>
+                                                            <p className="text-xs text-slate-500 mt-1">Por favor, aguarde</p>
                                                         </>
                                                     ) : (
                                                         <>
                                                             <Upload className="w-8 h-8 mb-3 text-slate-400" />
-                                                            <p className="text-sm text-slate-500"><span className="font-semibold">Clique para enviar</span> ou arraste o arquivo</p>
-                                                            <p className="text-xs text-slate-500">MP3, WAV (Max 10MB)</p>
+                                                            <p className="text-sm text-slate-600"><span className="font-semibold">Clique para enviar</span> ou arraste o arquivo</p>
+                                                            <p className="text-xs text-slate-500 mt-1">MP3, WAV, OGG (Máx 10MB)</p>
                                                         </>
                                                     )}
                                                 </div>

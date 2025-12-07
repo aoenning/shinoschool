@@ -82,8 +82,10 @@ export default function FileUpload({
 
             // Upload file with timeout
             console.log("Uploading to:", storageRef.fullPath);
+            console.log("File object:", file);
+            console.log("Storage ref fullPath:", storageRef.fullPath);
 
-            const uploadPromise = uploadBytes(storageRef, file);
+            const uploadPromise = uploadBytes(storageRef, file, { contentType: file.type });
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error("Upload timed out after 30 seconds")), 30000)
             );

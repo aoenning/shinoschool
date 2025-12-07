@@ -20,6 +20,12 @@ self.addEventListener('install', (event) => {
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+    // Bypass Firebase Storage URLs to avoid CORS issues
+    // CRITICAL: Return early to prevent double event.respondWith call
+    if (event.request.url.includes('firebasestorage.googleapis.com')) {
+        return; // Let the browser handle Firebase Storage requests natively
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then((response) => {

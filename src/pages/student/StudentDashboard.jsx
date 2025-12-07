@@ -16,6 +16,9 @@ export default function StudentDashboard() {
     const { user } = useAuth();
 
     const loadBookContent = async (bookId) => {
+        // Close book selector immediately for instant feedback
+        setShowBookSelector(false);
+
         try {
             const bookDoc = await getDoc(doc(db, "books", bookId));
             if (!bookDoc.exists()) {
@@ -58,7 +61,6 @@ export default function StudentDashboard() {
             );
 
             setUnits(unitsWithLessons);
-            setShowBookSelector(false);
         } catch (error) {
             console.error("Error loading book content:", error);
         }
