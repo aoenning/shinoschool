@@ -74,16 +74,19 @@ export default function StudentDashboard() {
                     return;
                 }
 
-                // Fetch student data from Firestore
-                const studentDoc = await getDoc(doc(db, "students", user.id));
+                // Fetch student data from Firestore by email
+                const studentsRef = collection(db, "students");
+                const q = query(studentsRef, where("email", "==", user.email));
+                const studentSnapshot = await getDocs(q);
 
-                if (!studentDoc.exists()) {
-                    console.log("Student document not found");
+                if (studentSnapshot.empty) {
+                    console.log("Student document not found for email:", user.email);
                     setLoading(false);
                     return;
                 }
 
-                const studentInfo = studentDoc.data();
+                const studentDoc = studentSnapshot.docs[0];
+                const studentInfo = { id: studentDoc.id, ...studentDoc.data() };
                 setStudentData(studentInfo);
 
                 // Handle multiple assigned books (new structure)

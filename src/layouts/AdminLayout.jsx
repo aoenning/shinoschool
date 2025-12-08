@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, BookOpen, Users, GraduationCap, LogOut, User, DollarSign, Eye, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, BookOpen, Users, GraduationCap, LogOut, User, DollarSign, Eye, ClipboardList, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import clsx from "clsx";
 import Logo from "@/components/ui/Logo";
 import { useState } from "react";
@@ -27,6 +27,7 @@ export default function AdminLayout() {
         { icon: BookOpen, label: "Livros", path: "/admin/books" },
         { icon: GraduationCap, label: "Turmas", path: "/admin/classes" },
         { icon: Users, label: "Alunos", path: "/admin/students" },
+        { icon: Shield, label: "Administradores", path: "/admin/admins" },
         { icon: DollarSign, label: "Financeiro", path: "/admin/financial" },
         { icon: ClipboardList, label: "Diário de Aulas", path: "/teacher" },
         { icon: Eye, label: "Ver como Aluno", path: "/student" },

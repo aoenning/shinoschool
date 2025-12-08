@@ -15,6 +15,8 @@ import StudentList from "@/pages/admin/students/StudentList";
 import StudentForm from "@/pages/admin/students/StudentForm";
 import StudentPrintForm from "@/pages/admin/students/StudentPrintForm";
 
+import AdminList from "@/pages/admin/admins/AdminList";
+
 import FinancialDashboard from "@/pages/admin/financial/FinancialDashboard";
 import PaymentList from "@/pages/admin/financial/PaymentList";
 import PaymentForm from "@/pages/admin/financial/PaymentForm";
@@ -72,6 +74,9 @@ function App() {
             <Route path="students/new" element={<StudentForm />} />
             <Route path="students/edit/:id" element={<StudentForm />} />
             <Route path="students/print/:id" element={<StudentPrintForm />} />
+
+            {/* Admins Routes */}
+            <Route path="admins" element={<AdminList />} />
 
             {/* Financial Routes */}
             <Route path="financial" element={<FinancialDashboard />} />
