@@ -116,8 +116,8 @@ export default function StudentPrintForm() {
                             </div>
                             <div className="mt-2">
                                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${student.status === 'active' ? 'bg-green-100 text-green-700' :
-                                        student.status === 'inactive' ? 'bg-red-100 text-red-700' :
-                                            'bg-yellow-100 text-yellow-700'
+                                    student.status === 'inactive' ? 'bg-red-100 text-red-700' :
+                                        'bg-yellow-100 text-yellow-700'
                                     }`}>
                                     {student.status === 'active' ? 'Ativo' : student.status === 'inactive' ? 'Inativo' : 'Trancado'}
                                 </span>
@@ -265,10 +265,12 @@ export default function StudentPrintForm() {
                     body {
                         print-color-adjust: exact;
                         -webkit-print-color-adjust: exact;
+                        margin: 0;
+                        padding: 1.5cm;
                     }
                     @page {
                         size: A4;
-                        margin: 1cm;
+                        margin: 0;
                     }
                     .print\\:hidden {
                         display: none !important;
@@ -277,12 +279,12 @@ export default function StudentPrintForm() {
                         display: block !important;
                     }
                     .print\\:px-12 {
-                        padding-left: 3rem !important;
-                        padding-right: 3rem !important;
+                        padding-left: 0 !important;
+                        padding-right: 0 !important;
                     }
                     .print\\:py-8 {
-                        padding-top: 2rem !important;
-                        padding-bottom: 2rem !important;
+                        padding-top: 0 !important;
+                        padding-bottom: 0 !important;
                     }
                     .print\\:shadow-none {
                         box-shadow: none !important;

@@ -37,7 +37,7 @@ export default function AdminLayout() {
         <div className="h-screen flex bg-slate-50 overflow-hidden">
             {/* Sidebar */}
             <aside className={clsx(
-                "flex-shrink-0 bg-gradient-to-b from-shino-blue to-blue-900 text-white flex flex-col shadow-2xl overflow-y-auto relative transition-all duration-300 scrollbar-thin",
+                "flex-shrink-0 bg-gradient-to-b from-shino-blue to-blue-900 text-white flex flex-col shadow-2xl overflow-y-auto relative transition-all duration-300 scrollbar-thin print:hidden",
                 sidebarOpen ? "w-64" : "w-20"
             )}>
                 {/* Background Pattern */}
@@ -115,8 +115,8 @@ export default function AdminLayout() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto">
-                <div className="p-8">
+            <main className="flex-1 overflow-y-auto print:overflow-visible">
+                <div className="p-8 print:p-0">
                     <Outlet />
                 </div>
             </main>
